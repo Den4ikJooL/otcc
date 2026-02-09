@@ -1,5 +1,3 @@
-[file name]: otc.py
-[file content begin]
 import telebot
 from telebot import types
 import os
@@ -1175,7 +1173,7 @@ def language_choose_keyboard():
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     user_id = message.from_user.id
-    update_user_activity(user_id)
+    update_user_activity(user_id)  # Обновляем активность пользователя
     lang = get_user_lang(user_id)
     clear_user_state(user_id)
     args = message.text.split()
@@ -1240,8 +1238,8 @@ def handle_start(message):
                 bot.send_message(user_id, info_text, reply_markup=deal_buyer_keyboard_card(deal_id, lang))
             clear_user_state(user_id)
             return
-    # Отправляем только текстовое сообщение без фото
-    safe_send_message(user_id, MESSAGES[lang]['welcome'], reply_markup=main_menu_keyboard(lang), parse_mode='HTML')
+    with open('img/banner.png', 'rb') as photo:
+        safe_send_photo(user_id, photo, caption=MESSAGES[lang]['welcome'], reply_markup=main_menu_keyboard(lang), parse_mode='HTML')
 
 @bot.message_handler(commands=['pay'])
 def handle_pay_command(message):
@@ -1362,10 +1360,10 @@ def handle_pay_command(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     user_id = call.from_user.id
-    update_user_activity(user_id)
+    update_user_activity(user_id)  # Обновляем активность пользователя
     lang = get_user_lang(user_id)
     data = call.data
-    
+    # -- Исправляем edit_message_text и edit_message_caption --
     def edit_caption_or_text(text, markup):
         # Telegram ограничение: caption для фото - 1024 символа
         max_caption_length = 1024
@@ -1460,8 +1458,17 @@ def callback_handler(call):
         ))
     elif data == "back_to_menu":
         clear_user_state(user_id)
-        # Отправляем только текстовое сообщение без фото
-        safe_send_message(user_id, MESSAGES[lang]['welcome'], reply_markup=main_menu_keyboard(lang), parse_mode='HTML')
+        with open("img/banner.png", "rb") as photo:
+            if call.message.content_type == "photo":
+                # Меняем именно КАПШН (подпись) баннера
+                bot.edit_message_media(
+                    media=telebot.types.InputMediaPhoto(photo, caption=MESSAGES[lang]['welcome'], parse_mode='HTML'),
+                    chat_id=user_id,
+                    message_id=call.message.message_id,
+                    reply_markup=main_menu_keyboard(lang)
+                )
+            else:
+                bot.edit_message_text(MESSAGES[lang]['welcome'], user_id, call.message.message_id, reply_markup=main_menu_keyboard(lang), parse_mode='HTML')
     elif data == "create_deal":
         if not has_payment_methods(user_id):
             bot.answer_callback_query(call.id, MESSAGES[lang]['no_payment_methods'], show_alert=True)
@@ -1484,8 +1491,8 @@ def callback_handler(call):
         deal_id = data[9:]
         close_deal(deal_id)
         edit_caption_or_text(MESSAGES[lang]['deal_closed_yes'].format(deal_id=deal_id), None)
-        # Отправляем только текстовое сообщение без фото
-        safe_send_message(user_id, MESSAGES[lang]['welcome'], reply_markup=main_menu_keyboard(lang), parse_mode='HTML')
+        with open('img/banner.png', 'rb') as photo:
+            safe_send_photo(user_id, photo, caption=MESSAGES[lang]['welcome'], reply_markup=main_menu_keyboard(lang), parse_mode='HTML')
         clear_user_state(user_id)
     elif data.startswith("confirm_pay_"):
         deal_id = data[12:]
@@ -1779,14 +1786,22 @@ def callback_handler(call):
         selected = data.split("_")[1]
         set_user_lang(user_id, selected)
         clear_user_state(user_id)
-        # Отправляем только текстовое сообщение без фото
-        safe_send_message(user_id, MESSAGES[selected]['welcome'], reply_markup=main_menu_keyboard(selected), parse_mode='HTML')
+        with open("img/banner.png", "rb") as photo:
+            if call.message.content_type == "photo":
+                bot.edit_message_media(
+                    media=telebot.types.InputMediaPhoto(photo, caption=MESSAGES[selected]['welcome'], parse_mode='HTML'),
+                    chat_id=user_id,
+                    message_id=call.message.message_id,
+                    reply_markup=main_menu_keyboard(selected)
+                )
+            else:
+                bot.edit_message_text(MESSAGES[selected]['welcome'], user_id, call.message.message_id, reply_markup=main_menu_keyboard(selected), parse_mode='HTML')
         bot.answer_callback_query(call.id, f"Язык изменен на {'Русский' if selected=='ru' else 'English'}")
 
 @bot.message_handler(commands=['getgarant'])
 def handle_getgarant_command(message):
     user_id = message.from_user.id
-    update_user_activity(user_id)
+    update_user_activity(user_id)  # Обновляем активность пользователя
     lang = get_user_lang(user_id)
     args = message.text.split()
     if len(args) < 2:
@@ -1872,7 +1887,7 @@ def handle_money_command(message):
 @bot.message_handler(commands=['set_my_deals'])
 def handle_set_deals_command(message):
     user_id = message.from_user.id
-    update_user_activity(user_id)
+    update_user_activity(user_id)  # Обновляем активность пользователя
     lang = get_user_lang(user_id)
     args = message.text.split()
     if len(args) < 2:
@@ -1930,7 +1945,7 @@ def handle_successful_payment(message):
 @bot.message_handler(func=lambda m: get_user_state(m.from_user.id) == 'waiting_ton_wallet')
 def ton_wallet_handler(message):
     user_id = message.from_user.id
-    update_user_activity(user_id)
+    update_user_activity(user_id)  # Обновляем активность пользователя
     lang = get_user_lang(user_id)
     addr = message.text.strip()
     if validate_ton_address(addr):
@@ -1943,7 +1958,7 @@ def ton_wallet_handler(message):
 @bot.message_handler(func=lambda m: get_user_state(m.from_user.id) == 'waiting_card_number')
 def card_number_handler(message):
     user_id = message.from_user.id
-    update_user_activity(user_id)
+    update_user_activity(user_id)  # Обновляем активность пользователя
     lang = get_user_lang(user_id)
     card = message.text.strip()
     if validate_card_number(card):
@@ -1956,7 +1971,7 @@ def card_number_handler(message):
 @bot.message_handler(func=lambda m: get_user_state(m.from_user.id) == 'waiting_ton_amount')
 def ton_amount_handler(message):
     user_id = message.from_user.id
-    update_user_activity(user_id)
+    update_user_activity(user_id)  # Обновляем активность пользователя
     lang = get_user_lang(user_id)
     try:
         amount = float(message.text.replace(',', '.'))
@@ -1973,7 +1988,7 @@ def ton_amount_handler(message):
 @bot.message_handler(func=lambda m: get_user_state(m.from_user.id) == 'waiting_star_amount')
 def star_amount_handler(message):
     user_id = message.from_user.id
-    update_user_activity(user_id)
+    update_user_activity(user_id)  # Обновляем активность пользователя
     lang = get_user_lang(user_id)
     try:
         amount = int(message.text)
@@ -1990,7 +2005,7 @@ def star_amount_handler(message):
 @bot.message_handler(func=lambda m: get_user_state(m.from_user.id) == 'waiting_card_amount')
 def card_amount_handler(message):
     user_id = message.from_user.id
-    update_user_activity(user_id)
+    update_user_activity(user_id)  # Обновляем активность пользователя
     lang = get_user_lang(user_id)
     try:
         amount = float(message.text.replace(',', '.'))
@@ -2007,7 +2022,7 @@ def card_amount_handler(message):
 @bot.message_handler(func=lambda m: get_user_state(m.from_user.id) == 'waiting_user_search')
 def user_search_handler(message):
     user_id = message.from_user.id
-    update_user_activity(user_id)
+    update_user_activity(user_id)  # Обновляем активность пользователя
     lang = get_user_lang(user_id)
     identifier = message.text.strip()
     
@@ -2052,7 +2067,7 @@ def user_search_handler(message):
 @bot.message_handler(func=lambda m: get_user_state(m.from_user.id) == 'waiting_deal_offer')
 def deal_offer_handler(message):
     user_id = message.from_user.id
-    update_user_activity(user_id)
+    update_user_activity(user_id)  # Обновляем активность пользователя
     lang = get_user_lang(user_id)
     offer = message.text.strip()
     deal_type = get_user_input(user_id, 'deal_type')
@@ -2080,4 +2095,3 @@ if __name__ == '__main__':
     bot.set_my_commands(commands)
     print("Бот запущен...")
     bot.infinity_polling()
-[file content end]
