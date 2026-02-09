@@ -9,3 +9,4 @@ pip3 install -r requirements.txt
 
 # Запуск бота
 python3 otc.py
+pip install --upgrade pip
